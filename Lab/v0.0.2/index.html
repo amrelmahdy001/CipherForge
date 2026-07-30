@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Deterministic Password Generator</title>
+<style>
+  /* ---------------------------------------------------------------------
+     Strict black/white/gray, no accent color. Monospace throughout: this
+     is a readout for a cryptographic pipeline, not a marketing surface.
+     --------------------------------------------------------------------- */
+
+  :root {
+    --black: #0a0a0a;
+    --white: #f5f5f5;
+    --gray-1: #1c1c1c;
+    --gray-2: #3a3a3a;
+    --gray-3: #7a7a7a;
+    --border: #2e2e2e;
+
+    --font-mono: "SFMono-Regular", "JetBrains Mono", "Fira Code", Consolas,
+      "Liberation Mono", Menlo, monospace;
+
+    --unit: 8px;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--black);
+    color: var(--white);
+    font-family: var(--font-mono);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: calc(var(--unit) * 3);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .panel {
+    width: 100%;
+    max-width: 440px;
+    border: 1px solid var(--border);
+    padding: calc(var(--unit) * 4);
+  }
+
+  .panel__header {
+    margin-bottom: calc(var(--unit) * 4);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: calc(var(--unit) * 3);
+  }
+
+  .panel__title {
+    margin: 0 0 calc(var(--unit) * 1.5);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .panel__subtitle {
+    margin: 0;
+    font-size: 12px;
+    color: var(--gray-3);
+    letter-spacing: 0.01em;
+  }
+
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--unit) * 2.5);
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--unit) * 1);
+  }
+
+  label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gray-3);
+  }
+
+  input {
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--white);
+    background: var(--gray-1);
+    border: 1px solid var(--border);
+    padding: calc(var(--unit) * 1.25) calc(var(--unit) * 1.5);
+    outline: none;
+    width: 100%;
+  }
+
+  input::placeholder {
+    color: var(--gray-2);
+  }
+
+  input:focus-visible {
+    border-color: var(--white);
+  }
+
+  input[readonly] {
+    color: var(--white);
+    background: var(--black);
+  }
+
+  .btn {
+    font-family: inherit;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: calc(var(--unit) * 1.5);
+    border: 1px solid var(--white);
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+
+  .btn:focus-visible {
+    outline: 2px solid var(--white);
+    outline-offset: 2px;
+  }
+
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.35;
+  }
+
+  .btn--primary {
+    background: var(--white);
+    color: var(--black);
+    margin-top: calc(var(--unit) * 1);
+  }
+
+  .btn--primary:hover:not(:disabled) {
+    background: var(--gray-3);
+  }
+
+  .btn--ghost {
+    background: transparent;
+    color: var(--white);
+    border-color: var(--border);
+    flex: 0 0 auto;
+  }
+
+  .btn--ghost:hover:not(:disabled) {
+    border-color: var(--white);
+  }
+
+  .status {
+    min-height: 14px;
+    margin: 0;
+    font-size: 11px;
+    color: var(--gray-3);
+    letter-spacing: 0.02em;
+  }
+
+  .status--error {
+    color: var(--white);
+  }
+
+  .result {
+    margin-top: calc(var(--unit) * 4);
+    padding-top: calc(var(--unit) * 3);
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--unit) * 1);
+  }
+
+  .result__row {
+    display: flex;
+    gap: calc(var(--unit) * 1.5);
+  }
+
+  .result__row input {
+    flex: 1 1 auto;
+    letter-spacing: 0.03em;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn {
+      transition: none;
+    }
+  }
+</style>
+</head>
+<body>
+  <main class="panel">
+    <header class="panel__header">
+      <h1 class="panel__title">Deterministic&nbsp;Password&nbsp;Generator</h1>
+      <p class="panel__subtitle">Argon2id&nbsp;→&nbsp;HMAC-SHA256&nbsp;→&nbsp;Password. Nothing leaves this page.</p>
+    </header>
+
+    <form id="generator-form" class="form" autocomplete="off">
+      <div class="field">
+        <label for="platform">Platform</label>
+        <input id="platform" name="platform" type="text" placeholder="example.com" required />
+      </div>
+
+      <div class="field">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" placeholder="jane.doe" required />
+      </div>
+
+      <div class="field">
+        <label for="passkey">Master Passkey</label>
+        <input id="passkey" name="passkey" type="password" placeholder="never stored, never sent" required />
+      </div>
+
+      <div class="field">
+        <label for="version">Version</label>
+        <input id="version" name="version" type="text" placeholder="1" value="1" />
+      </div>
+
+      <button id="generate-btn" type="submit" class="btn btn--primary">Generate</button>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </form>
+
+    <section class="result" aria-label="Generated password">
+      <label for="output">Generated Password</label>
+      <div class="result__row">
+        <input id="output" type="text" readonly placeholder="—" />
+        <button id="copy-btn" type="button" class="btn btn--ghost" disabled>Copy</button>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    // -----------------------------------------------------------------------
+    // CRYPTO ENGINE
+    // -----------------------------------------------------------------------
+    // Master Passkey  --Argon2id-->  Secret Key
+    // Secret Key + (Platform, Username, Version)  --HMAC-SHA256-->  Seed
+    //
+    // The Master Passkey is NEVER used directly to build the output
+    // password — it only ever produces the Secret Key, one extra step
+    // removed from the final result. Nothing here is written to storage;
+    // all secret material lives only as local variables for the duration
+    // of a single generate() call.
+    // -----------------------------------------------------------------------
+
+    import { argon2id } from "https://cdn.jsdelivr.net/npm/hash-wasm@4/dist/hash-wasm.esm.js";
+
+    const textEncoder = new TextEncoder();
+
+    // Fixed, application-level Argon2id salt. Intentionally constant and
+    // public — it is NOT a per-user secret. The Master Passkey is the
+    // secret being stretched. A fixed salt is what makes the Secret Key
+    // reproducible from the same Master Passkey every time, which a
+    // deterministic generator requires (no salt can be stored).
+    const ARGON2_SALT = textEncoder.encode("deterministic-pwgen:argon2id:salt:v1");
+
+    const ARGON2_PARAMS = Object.freeze({
+      parallelism: 1,
+      iterations: 3,
+      memorySize: 65536, // KiB (64 MB)
+      hashLength: 32,
+    });
+
+    /**
+     * Derives a 32-byte Secret Key from the Master Passkey using Argon2id.
+     * @param {string} masterPasskey
+     * @returns {Promise<Uint8Array>}
+     */
+    async function deriveSecretKey(masterPasskey) {
+      if (!masterPasskey) {
+        throw new Error("Master Passkey is required.");
+      }
+
+      const derived = await argon2id({
+        password: textEncoder.encode(masterPasskey),
+        salt: ARGON2_SALT,
+        parallelism: ARGON2_PARAMS.parallelism,
+        iterations: ARGON2_PARAMS.iterations,
+        memorySize: ARGON2_PARAMS.memorySize,
+        hashLength: ARGON2_PARAMS.hashLength,
+        outputType: "binary",
+      });
+
+      return new Uint8Array(derived);
+    }
+
+    /**
+     * Derives a deterministic 32-byte seed via HMAC-SHA256, keyed by the
+     * Secret Key, over the message Platform | Username | Version.
+     * @param {Uint8Array} secretKey
+     * @param {string} platform
+     * @param {string} username
+     * @param {string} version
+     * @returns {Promise<Uint8Array>}
+     */
+    async function deriveSeed(secretKey, platform, username, version) {
+      const message = textEncoder.encode(
+        `${platform}\u0000${username}\u0000${version}`
+      );
+
+      const hmacKey = await crypto.subtle.importKey(
+        "raw",
+        secretKey,
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+
+      const signature = await crypto.subtle.sign("HMAC", hmacKey, message);
+      return new Uint8Array(signature);
+    }
+
+    /**
+     * Expands the seed into successive 32-byte pseudorandom blocks via
+     * SHA-256(seed || big-endian counter). Unbiased byte source for
+     * mapping the seed onto the output character set.
+     * @param {Uint8Array} seed
+     * @param {number} blockIndex
+     * @returns {Promise<Uint8Array>}
+     */
+    async function expandSeedBlock(seed, blockIndex) {
+      const counter = new Uint8Array(4);
+      new DataView(counter.buffer).setUint32(0, blockIndex, false);
+
+      const input = new Uint8Array(seed.length + counter.length);
+      input.set(seed, 0);
+      input.set(counter, seed.length);
+
+      const digest = await crypto.subtle.digest("SHA-256", input);
+      return new Uint8Array(digest);
+    }
+
+    // -----------------------------------------------------------------------
+    // GENERATOR
+    // -----------------------------------------------------------------------
+    // Converts the seed into a fixed-length password over a fixed character
+    // set, using rejection sampling against the expanding keystream so
+    // every character is unbiased (no modulo bias).
+    // -----------------------------------------------------------------------
+
+    const CHARSET =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+    const PASSWORD_LENGTH = 20;
+
+    /**
+     * Deterministically converts a seed into a PASSWORD_LENGTH-character
+     * password drawn from CHARSET. Identical seeds always produce
+     * identical passwords.
+     * @param {Uint8Array} seed
+     * @returns {Promise<string>}
+     */
+    async function seedToPassword(seed) {
+      const charsetSize = CHARSET.length;
+
+      // Largest multiple of charsetSize that fits in a byte (0-255).
+      // Bytes at or above this threshold are discarded to avoid bias.
+      const threshold = Math.floor(256 / charsetSize) * charsetSize;
+
+      const chars = [];
+      let blockIndex = 0;
+
+      while (chars.length < PASSWORD_LENGTH) {
+        const block = await expandSeedBlock(seed, blockIndex);
+        blockIndex += 1;
+
+        for (const byte of block) {
+          if (chars.length >= PASSWORD_LENGTH) break;
+          if (byte >= threshold) continue;
+          chars.push(CHARSET[byte % charsetSize]);
+        }
+      }
+
+      return chars.join("");
+    }
+
+    // -----------------------------------------------------------------------
+    // APP / UI WIRING
+    // -----------------------------------------------------------------------
+
+    const form = document.getElementById("generator-form");
+    const platformInput = document.getElementById("platform");
+    const usernameInput = document.getElementById("username");
+    const passkeyInput = document.getElementById("passkey");
+    const versionInput = document.getElementById("version");
+    const generateButton = document.getElementById("generate-btn");
+    const outputField = document.getElementById("output");
+    const copyButton = document.getElementById("copy-btn");
+    const statusEl = document.getElementById("status");
+
+    let currentPassword = "";
+
+    function setStatus(message, isError = false) {
+      statusEl.textContent = message;
+      statusEl.classList.toggle("status--error", isError);
+    }
+
+    function setBusy(isBusy) {
+      generateButton.disabled = isBusy;
+      generateButton.textContent = isBusy ? "Generating…" : "Generate";
+    }
+
+    function resetOutput() {
+      currentPassword = "";
+      outputField.value = "";
+      copyButton.disabled = true;
+    }
+
+    async function handleGenerate(event) {
+      event.preventDefault();
+
+      const platform = platformInput.value.trim();
+      const username = usernameInput.value.trim();
+      const passkey = passkeyInput.value;
+      const version = versionInput.value.trim() || "1";
+
+      resetOutput();
+
+      if (!platform || !username || !passkey) {
+        setStatus("Platform, Username, and Master Passkey are required.", true);
+        return;
+      }
+
+      setBusy(true);
+      setStatus("Deriving secret key…");
+
+      try {
+        const secretKey = await deriveSecretKey(passkey);
+
+        setStatus("Deriving seed…");
+        const seed = await deriveSeed(secretKey, platform, username, version);
+
+        setStatus("Generating password…");
+        const password = await seedToPassword(seed);
+
+        currentPassword = password;
+        outputField.value = password;
+        copyButton.disabled = false;
+        setStatus("Password generated.");
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || "Generation failed.", true);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function handleCopy() {
+      if (!currentPassword) return;
+
+      try {
+        await navigator.clipboard.writeText(currentPassword);
+        setStatus("Copied to clipboard.");
+      } catch (err) {
+        setStatus("Copy failed — select and copy manually.", true);
+      }
+    }
+
+    form.addEventListener("submit", handleGenerate);
+    copyButton.addEventListener("click", handleCopy);
+  </script>
+</body>
+</html>

@@ -1,0 +1,213 @@
+/* -------------------------------------------------------------------------
+   Deterministic Password Generator — strict black/white/gray, no accent
+   color. Monospace throughout: the interface is a readout for a
+   cryptographic pipeline, not a marketing surface.
+   ------------------------------------------------------------------------- */
+
+:root {
+  --black: #0a0a0a;
+  --white: #f5f5f5;
+  --gray-1: #1c1c1c;
+  --gray-2: #3a3a3a;
+  --gray-3: #7a7a7a;
+  --border: #2e2e2e;
+
+  --font-mono: "SFMono-Regular", "JetBrains Mono", "Fira Code", Consolas,
+    "Liberation Mono", Menlo, monospace;
+
+  --unit: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--black);
+  color: var(--white);
+  font-family: var(--font-mono);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--unit) * 3);
+  -webkit-font-smoothing: antialiased;
+}
+
+.panel {
+  width: 100%;
+  max-width: 440px;
+  border: 1px solid var(--border);
+  padding: calc(var(--unit) * 4);
+}
+
+.panel__header {
+  margin-bottom: calc(var(--unit) * 4);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: calc(var(--unit) * 3);
+}
+
+.panel__title {
+  margin: 0 0 calc(var(--unit) * 1.5);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.panel__subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: var(--gray-3);
+  letter-spacing: 0.01em;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--unit) * 2.5);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--unit) * 1);
+}
+
+label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gray-3);
+}
+
+input {
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--white);
+  background: var(--gray-1);
+  border: 1px solid var(--border);
+  padding: calc(var(--unit) * 1.25) calc(var(--unit) * 1.5);
+  outline: none;
+  width: 100%;
+}
+
+input::placeholder {
+  color: var(--gray-2);
+}
+
+input:focus-visible {
+  border-color: var(--white);
+}
+
+input[readonly] {
+  color: var(--white);
+  background: var(--black);
+}
+
+.btn {
+  font-family: inherit;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: calc(var(--unit) * 1.5);
+  border: 1px solid var(--white);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--white);
+  outline-offset: 2px;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.btn--primary {
+  background: var(--white);
+  color: var(--black);
+  margin-top: calc(var(--unit) * 1);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--gray-3);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--white);
+  border-color: var(--border);
+  flex: 0 0 auto;
+}
+
+.btn--ghost:hover:not(:disabled) {
+  border-color: var(--white);
+}
+
+.status {
+  min-height: 14px;
+  margin: 0;
+  font-size: 11px;
+  color: var(--gray-3);
+  letter-spacing: 0.02em;
+}
+
+.status--error {
+  color: var(--white);
+}
+
+.result {
+  margin-top: calc(var(--unit) * 4);
+  padding-top: calc(var(--unit) * 3);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--unit) * 1);
+}
+
+.result__row {
+  display: flex;
+  gap: calc(var(--unit) * 1.5);
+}
+
+.result__row input {
+  flex: 1 1 auto;
+  letter-spacing: 0.03em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
+}
+.btn--primary {
+  position: relative;
+  overflow: hidden;
+}
+
+/* spinner container */
+.btn--loading::after {
+  content: "";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  border: 2px solid var(--gray-3);
+  border-top-color: var(--black);
+  border-radius: 50%;
+  animation: btn-spinner 0.6s linear infinite;
+}
+
+@keyframes btn-spinner {
+  to { transform: rotate(360deg); }
+}

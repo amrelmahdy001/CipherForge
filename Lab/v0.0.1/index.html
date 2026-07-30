@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deterministic Password Generator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="panel">
+    <header class="panel__header">
+      <h1 class="panel__title">Deterministic&nbsp;Password&nbsp;Generator</h1>
+      <p class="panel__subtitle">Argon2id&nbsp;→&nbsp;HMAC-SHA256&nbsp;→&nbsp;Password. Nothing leaves this page.</p>
+    </header>
+
+    <form id="generator-form" class="form" autocomplete="off">
+      <div class="field">
+        <label for="platform">Platform</label>
+        <input id="platform" name="platform" type="text" placeholder="example.com" required />
+      </div>
+
+      <div class="field">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" placeholder="jane.doe" required />
+      </div>
+
+      <div class="field">
+        <label for="passkey">Master Passkey</label>
+        <input id="passkey" name="passkey" type="password" placeholder="never stored, never sent" required />
+      </div>
+
+      <div class="field">
+        <label for="version">Version</label>
+        <input id="version" name="version" type="text" placeholder="1" value="1" />
+      </div>
+
+      <button id="generate-btn" type="button" class="btn btn--primary">Generate</button>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </form>
+
+    <section class="result" aria-label="Generated password">
+      <label for="output">Generated Password</label>
+      <div class="result__row">
+        <input id="output" type="text" readonly placeholder="—" />
+        <button id="copy-btn" type="button" class="btn btn--ghost" disabled>Copy</button>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+  <script src="argon2.umd.min.js"></script>
+</body>
+</html>

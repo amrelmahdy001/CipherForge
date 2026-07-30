@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Deterministic Password Generator</title>
+<style>
+  /* نفس تنسيقك السابق، لم يتغير */
+  :root {
+    --black: #0a0a0a;
+    --white: #f5f5f5;
+    --gray-1: #1c1c1c;
+    --gray-2: #3a3a3a;
+    --gray-3: #7a7a7a;
+    --border: #2e2e2e;
+    --font-mono: "SFMono-Regular", "JetBrains Mono", "Fira Code", Consolas, "Liberation Mono", Menlo, monospace;
+    --unit: 8px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--black);
+    color: var(--white);
+    font-family: var(--font-mono);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: calc(var(--unit) * 3);
+    -webkit-font-smoothing: antialiased;
+  }
+  .panel {
+    width: 100%;
+    max-width: 440px;
+    border: 1px solid var(--border);
+    padding: calc(var(--unit) * 4);
+  }
+  .panel__header {
+    margin-bottom: calc(var(--unit) * 4);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: calc(var(--unit) * 3);
+  }
+  .panel__title {
+    margin: 0 0 calc(var(--unit) * 1.5);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .panel__subtitle {
+    margin: 0;
+    font-size: 12px;
+    color: var(--gray-3);
+    letter-spacing: 0.01em;
+  }
+  .form {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--unit) * 2.5);
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--unit) * 1);
+  }
+  label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gray-3);
+  }
+  input {
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--white);
+    background: var(--gray-1);
+    border: 1px solid var(--border);
+    padding: calc(var(--unit) * 1.25) calc(var(--unit) * 1.5);
+    outline: none;
+    width: 100%;
+  }
+  input::placeholder { color: var(--gray-2); }
+  input:focus-visible { border-color: var(--white); }
+  input[readonly] { color: var(--white); background: var(--black); }
+  .btn {
+    font-family: inherit;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: calc(var(--unit) * 1.5);
+    border: 1px solid var(--white);
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+  .btn:focus-visible { outline: 2px solid var(--white); outline-offset: 2px; }
+  .btn:disabled { cursor: not-allowed; opacity: 0.35; }
+  .btn--primary { background: var(--white); color: var(--black); margin-top: calc(var(--unit) * 1); }
+  .btn--primary:hover:not(:disabled) { background: var(--gray-3); }
+  .btn--ghost {
+    background: transparent;
+    color: var(--white);
+    border-color: var(--border);
+    flex: 0 0 auto;
+  }
+  .btn--ghost:hover:not(:disabled) { border-color: var(--white); }
+  .status {
+    min-height: 14px;
+    margin: 0;
+    font-size: 11px;
+    color: var(--gray-3);
+    letter-spacing: 0.02em;
+  }
+  .status--error { color: var(--white); }
+  .result {
+    margin-top: calc(var(--unit) * 4);
+    padding-top: calc(var(--unit) * 3);
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--unit) * 1);
+  }
+  .result__row {
+    display: flex;
+    gap: calc(var(--unit) * 1.5);
+  }
+  .result__row input { flex: 1 1 auto; letter-spacing: 0.03em; }
+
+  /* عنصر عرض سجل التنفيذ (للتتبع) */
+  #debug-log {
+    margin-top: calc(var(--unit) * 2);
+    padding: calc(var(--unit) * 1);
+    border: 1px dashed var(--gray-2);
+    font-size: 10px;
+    color: var(--gray-3);
+    max-height: 150px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    display: none; /* يمكنك إظهاره بالضغط على زر أو تركه مخفياً */
+  }
+</style>
+</head>
+<body>
+  <main class="panel">
+    <header class="panel__header">
+      <h1 class="panel__title">Deterministic Password Generator</h1>
+      <p class="panel__subtitle">Argon2id → HMAC-SHA256 → Password. Nothing leaves this page.</p>
+    </header>
+
+    <form id="generator-form" class="form" autocomplete="off">
+      <div class="field">
+        <label for="platform">Platform</label>
+        <input id="platform" name="platform" type="text" placeholder="example.com" required />
+      </div>
+      <div class="field">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" placeholder="jane.doe" required />
+      </div>
+      <div class="field">
+        <label for="passkey">Master Passkey</label>
+        <input id="passkey" name="passkey" type="password" placeholder="never stored, never sent" required />
+      </div>
+      <div class="field">
+        <label for="version">Version</label>
+        <input id="version" name="version" type="text" placeholder="1" value="1" />
+      </div>
+      <button id="generate-btn" type="button" class="btn btn--primary">Generate</button>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </form>
+
+    <section class="result" aria-label="Generated password">
+      <label for="output">Generated Password</label>
+      <div class="result__row">
+        <input id="output" type="text" readonly placeholder="—" />
+        <button id="copy-btn" type="button" class="btn btn--ghost" disabled>Copy</button>
+      </div>
+    </section>
+
+    <!-- سجل التتبع اختياري، يظهر بالضغط على زر "Show Log" -->
+    <button id="toggle-log-btn" type="button" class="btn btn--ghost" style="margin-top: 8px;">Show Log</button>
+    <div id="debug-log"></div>
+  </main>
+
+  <!-- تحميل مكتبة argon2 (نسخة UMD التي نزلتها) -->
+  <script src="argon2.umd.min.js"></script>
+
+  <script>
+    // ================ CRYPTO ENGINE ================
+    const textEncoder = new TextEncoder();
+    const ARGON2_SALT = textEncoder.encode("deterministic-pwgen:argon2id:salt:v1");
+    const ARGON2_PARAMS = Object.freeze({
+      parallelism: 1,
+      iterations: 3,
+      memorySize: 65536,
+      hashLength: 32,
+    });
+
+    function logToScreen(msg) {
+      console.log(msg);
+      const debugDiv = document.getElementById("debug-log");
+      if (debugDiv) {
+        debugDiv.style.display = "block";
+        debugDiv.textContent += msg + "\n";
+        debugDiv.scrollTop = debugDiv.scrollHeight;
+      }
+    }
+
+    async function deriveSecretKey(masterPasskey) {
+      logToScreen("[crypto] deriveSecretKey called, passkey length: " + (masterPasskey ? masterPasskey.length : 0));
+      if (!masterPasskey) {
+        logToScreen("[crypto] ERROR: Master Passkey is empty");
+        throw new Error("Master Passkey is required.");
+      }
+      try {
+        logToScreen("[crypto] Starting argon2id...");
+        const derived = await hashwasm.argon2id({
+          password: textEncoder.encode(masterPasskey),
+          salt: ARGON2_SALT,
+          parallelism: ARGON2_PARAMS.parallelism,
+          iterations: ARGON2_PARAMS.iterations,
+          memorySize: ARGON2_PARAMS.memorySize,
+          hashLength: ARGON2_PARAMS.hashLength,
+          outputType: "binary",
+        });
+        logToScreen("[crypto] argon2id finished, output length: " + derived.length);
+        return new Uint8Array(derived);
+      } catch (err) {
+        logToScreen("[crypto] deriveSecretKey ERROR: " + err.message);
+        throw err;
+      }
+    }
+
+    async function deriveSeed(secretKey, platform, username, version) {
+      logToScreen("[crypto] deriveSeed called, platform: " + platform + ", username: " + username + ", version: " + version);
+      const message = textEncoder.encode(platform + "\u0000" + username + "\u0000" + version);
+      try {
+        const hmacKey = await crypto.subtle.importKey("raw", secretKey, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+        const signature = await crypto.subtle.sign("HMAC", hmacKey, message);
+        logToScreen("[crypto] HMAC signature generated, length: " + signature.byteLength);
+        return new Uint8Array(signature);
+      } catch (err) {
+        logToScreen("[crypto] deriveSeed ERROR: " + err.message);
+        throw err;
+      }
+    }
+
+    async function expandSeedBlock(seed, blockIndex) {
+      logToScreen("[crypto] expandSeedBlock called, blockIndex: " + blockIndex);
+      const counter = new Uint8Array(4);
+      new DataView(counter.buffer).setUint32(0, blockIndex, false);
+      const input = new Uint8Array(seed.length + counter.length);
+      input.set(seed, 0);
+      input.set(counter, seed.length);
+      const digest = await crypto.subtle.digest("SHA-256", input);
+      return new Uint8Array(digest);
+    }
+
+    // ================ GENERATOR ================
+    const CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+    const PASSWORD_LENGTH = 20;
+
+    async function seedToPassword(seed) {
+      logToScreen("[generator] seedToPassword started, seed length: " + seed.length);
+      const charsetSize = CHARSET.length;
+      const threshold = Math.floor(256 / charsetSize) * charsetSize;
+      logToScreen("[generator] charsetSize: " + charsetSize + ", threshold: " + threshold);
+      const chars = [];
+      let blockIndex = 0;
+      while (chars.length < PASSWORD_LENGTH) {
+        logToScreen("[generator] Requesting block index " + blockIndex);
+        const block = await expandSeedBlock(seed, blockIndex);
+        blockIndex++;
+        let used = 0;
+        for (const byte of block) {
+          if (chars.length >= PASSWORD_LENGTH) break;
+          if (byte >= threshold) continue;
+          chars.push(CHARSET[byte % charsetSize]);
+          used++;
+        }
+        logToScreen("[generator] Block " + (blockIndex - 1) + ": used " + used + " bytes, total chars: " + chars.length);
+      }
+      const password = chars.join("");
+      logToScreen("[generator] Password generated successfully, length: " + password.length);
+      return password;
+    }
+
+    // ================ APP / UI ================
+    const form = document.getElementById("generator-form");
+    const platformInput = document.getElementById("platform");
+    const usernameInput = document.getElementById("username");
+    const passkeyInput = document.getElementById("passkey");
+    const versionInput = document.getElementById("version");
+    const generateButton = document.getElementById("generate-btn");
+    const outputField = document.getElementById("output");
+    const copyButton = document.getElementById("copy-btn");
+    const statusEl = document.getElementById("status");
+
+    let currentPassword = "";
+
+    function setStatus(message, isError = false) {
+      logToScreen("[app] setStatus: " + message + (isError ? " (error)" : ""));
+      statusEl.textContent = message;
+      statusEl.classList.toggle("status--error", isError);
+    }
+
+    function setBusy(isBusy) {
+      logToScreen("[app] setBusy: " + isBusy);
+      generateButton.disabled = isBusy;
+      generateButton.textContent = isBusy ? "Generating…" : "Generate";
+    }
+
+    function resetOutput() {
+      logToScreen("[app] resetOutput");
+      currentPassword = "";
+      outputField.value = "";
+      copyButton.disabled = true;
+    }
+
+    async function handleGenerate() {
+      logToScreen("[app] handleGenerate started");
+      const platform = platformInput.value.trim();
+      const username = usernameInput.value.trim();
+      const passkey = passkeyInput.value;
+      const version = versionInput.value.trim() || "1";
+      logToScreen("[app] Input values: platform=" + platform + ", username=" + username + ", version=" + version + ", passkeyLength=" + passkey.length);
+
+      resetOutput();
+
+      if (!platform || !username || !passkey) {
+        setStatus("Platform, Username, and Master Passkey are required.", true);
+        logToScreen("[app] Validation failed: missing required fields");
+        return;
+      }
+
+      setBusy(true);
+      setStatus("Deriving secret key…");
+
+      try {
+        logToScreen("[app] Calling deriveSecretKey...");
+        const secretKey = await deriveSecretKey(passkey);
+        logToScreen("[app] Secret key derived, length: " + secretKey.length);
+
+        setStatus("Deriving seed…");
+        logToScreen("[app] Calling deriveSeed...");
+        const seed = await deriveSeed(secretKey, platform, username, version);
+        logToScreen("[app] Seed derived, length: " + seed.length);
+
+        setStatus("Generating password…");
+        logToScreen("[app] Calling seedToPassword...");
+        const password = await seedToPassword(seed);
+
+        currentPassword = password;
+        outputField.value = password;
+        copyButton.disabled = false;
+        setStatus("Password generated.");
+        logToScreen("[app] Password generation completed successfully");
+      } catch (err) {
+        logToScreen("[app] Error during generation: " + err.message);
+        setStatus(err.message || "Generation failed.", true);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function handleCopy() {
+      logToScreen("[app] handleCopy called");
+      if (!currentPassword) return;
+      try {
+        await navigator.clipboard.writeText(currentPassword);
+        setStatus("Copied to clipboard.");
+      } catch (err) {
+        setStatus("Copy failed — select and copy manually.", true);
+      }
+    }
+
+    generateButton.addEventListener("click", handleGenerate);
+    copyButton.addEventListener("click", handleCopy);
+
+    // زر إظهار/إخفاء السجل
+    document.getElementById("toggle-log-btn").addEventListener("click", function() {
+      const logDiv = document.getElementById("debug-log");
+      if (logDiv.style.display === "none") {
+        logDiv.style.display = "block";
+        this.textContent = "Hide Log";
+      } else {
+        logDiv.style.display = "none";
+        this.textContent = "Show Log";
+      }
+    });
+
+    logToScreen("[app] App initialized");
+  </script>
+</body>
+</html>
